@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>來點單 - LIFF 線上點餐</title>
+    <!-- 引入 Tailwind CSS 確保排版美觀 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 載入 LINE LIFF SDK -->
+    <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+</head>
+<body class="bg-gray-50 text-gray-800 min-h-screen flex flex-col justify-between">
+
+    <!-- 頂部導覽列 -->
+    <header class="bg-emerald-600 text-white p-4 shadow-md text-center">
+        <h1 class="text-xl font-bold">🛒 來點單 (LINE LIFF 測試)</h1>
+        <p id="user-info" class="text-xs text-emerald-100 mt-1">正在初始化 LIFF...</p>
+    </header>
+
+    <!-- 主要內容區 -->
+    <main class="max-w-md mx-auto p-4 w-full flex-grow">
+        <div class="bg-white rounded-xl shadow-md p-5 mb-4">
+            <h2 class="text-lg font-semibold mb-3 border-b pb-2 text-emerald-700">選擇您的餐點</h2>
+            
+            <div class="space-y-3">
+                <!-- 品項 1 -->
+                <div class="flex justify-between items-center bg-gray-50 p-3 rounded-lg border">
+                    <div>
+                        <div class="font-medium">經典招牌吐司</div>
+                        <div class="text-sm text-gray-500">$60</div>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <button onclick="updateQty('toast', -1)" class="bg-gray-200 px-2.5 py-1 rounded font-bold">-</button>
+                        <span id="qty-toast" class="w-6 text-center font-semibold">0</span>
+                        <button onclick="updateQty('toast', 1)" class="bg-emerald-500 text-white px-2.5 py-1 rounded font-bold">+</button>
+                    </div>
+                </div>
+
+                <!-- 品項 2 -->
+                <div class="flex justify-between items-center bg-gray-50 p-3 rounded-lg border">
+                    <div>
+                        <div class="font-medium">香濃拿鐵咖啡</div>
+                        <div class="text-sm text-gray-500">$80</div>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <button onclick="updateQty('coffee', -1)" class="bg-gray-200 px-2.5 py-1 rounded font-bold">-</button>
+                        <span id="qty-coffee" class="w-6 text-center font-semibold">0</span>
+                        <button onclick="updateQty('coffee', 1)" class="bg-emerald-500 text-white px-2.5 py-1 rounded font-bold">+</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 訂單摘要 -->
+        <div class="bg-white rounded-xl shadow-md p-5 mb-4">
+            <h3 class="font-semibold mb-2 text-gray-700">訂單總金額</h3>
+            <div class="text-2xl font-bold text-emerald-600 text-right" id="total-price">$0</div>
+        </div>
+
+        <!-- 送出按鈕 -->
+        <button onclick="submitOrder()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl shadow-lg transition duration-200">
+            確認送出訂單
+        </button>
+    </main>
+
+    <!-- 頁尾 -->
+    <footer class="text-center text-xs text-gray-400 p-4">
+        © 2026 來點單團隊協作專案
+    </footer>
+
+    <!-- JavaScript 邏輯 -->
+    <script>
+        const prices = { toast: 60, coffee: 80 };
+        const quantities = { toast: 0, coffee: 0 };
+        const itemNames = { toast: '經典招牌吐司', coffee: '香濃拿鐵咖啡' };
+
+        // 初始化 LIFF
+        window.onload = async function() {
+            const liffId = "您的_LIFF_ID"; // 請替換成您在 LINE Developers 取得的 LIFF ID
+            
+            try {
+                if (liffId && liffId !== "您的_LIFF_ID") {
+                    await liff.init({ liffId: liffId });
+                    if (liff.isInClient()) {
+                        const profile = await liff.getProfile();
+                        document.getElementById('user-info').innerText = `歡迎回來，${profile.displayName} (${profile.userId.slice(-4)})`;
+                    } else {
+                        document.getElementById('user-info').innerText = "外部瀏覽器模式 (已連線)";
+                    }
+                } else {
+                    document.getElementById('user-info').innerText = "目前為本地開發預覽模式（未填 LIFF ID）";
+                }
+            } catch (error) {
+                console.error("LIFF 初始化失敗", error);
+                document.getElementById('user-info').innerText = "LIFF 初始化失敗，請檢查設定";
+            }
+        };
+
+        // 數量增減
+        function updateQty(item, delta) {
+            quantities[item] = Math.max(0, quantities[item] + delta);
+            document.getElementById(`qty-${item}`).innerText = quantities[item];
+            calculateTotal();
+        }
+
+        // 計算總金額
+        function calculateTotal() {
+            let total = (quantities.toast * prices.toast) + (quantities.coffee * prices.coffee);
+            document.getElementById('total-price').innerText = `$${total}`;
+        }
+
+        // 送出點單
+        async function submitOrder() {
+            let total = (quantities.toast * prices.toast) + (quantities.coffee * prices.coffee);
+            if (total === 0) {
+                alert("請至少選擇一項餐點！");
+                return;
+            }
+
+            let summary = "【新點單明細】\n";
+            if (quantities.toast > 0) summary += `- ${itemNames.toast} x ${quantities.toast}\n`;
+            if (quantities.coffee > 0) summary += `- ${itemNames.coffee} x ${quantities.coffee}\n`;
+            summary += `總金額：$${total}`;
+
+            // 若在 LINE App 內，直接透過聊天室發送訊息
+            if (typeof liff !== 'undefined' && liff.isInClient()) {
+                try {
+                    await liff.sendMessages([{ type: 'text', text: summary }]);
+                    liff.closeWindow();
+                } catch (error) {
+                    alert("發送失敗：" + error);
+                }
+            } else {
+                // 一般網頁測試時的 fallback 提示
+                alert("【模擬發送成功】\n\n" + summary);
+            }
+        }
+    </script>
+</body>
+</html>
